@@ -16,6 +16,8 @@ import ListItemText from '@mui/material/ListItemText'
 import Typography from '@mui/material/Typography'
 import Button from '@mui/material/Button'
 import Divider from '@mui/material/Divider'
+import Menu from '@mui/material/Menu'
+import MenuItem from '@mui/material/MenuItem'
 
 import MenuIcon from '@mui/icons-material/Menu'
 import SearchIcon from '@mui/icons-material/Search'
@@ -32,9 +34,13 @@ import AllInboxIcon from '@mui/icons-material/AllInbox'
 import ReportIcon from '@mui/icons-material/Report'
 import DeleteIcon from '@mui/icons-material/Delete'
 import LabelIcon from '@mui/icons-material/Label'
+import LogoutIcon from '@mui/icons-material/Logout'
+import CheckIcon from '@mui/icons-material/Check'
+import MailOutlineIcon from '@mui/icons-material/MailOutline'
 
 import { useAuthStore } from '../store/authStore'
 import { useConfigStore } from '../store/configStore'
+import { supabase } from '../api/supabase'
 import ComposeModal from './ComposeModal'
 
 const SIDEBAR_WIDTH = 256
@@ -66,6 +72,11 @@ export default function Layout({ children }: LayoutProps) {
   const location = useLocation()
   const [searchParams] = useSearchParams()
   const email = useAuthStore((s) => s.email)
+  const clearAuth = useAuthStore((s) => s.clearAuth)
+  const mailboxes = useAuthStore((s) => s.mailboxes)
+  const activeMailboxId = useAuthStore((s) => s.activeMailboxId)
+  const setActiveMailboxId = useAuthStore((s) => s.setActiveMailboxId)
+
   const appName = useConfigStore((s) => s.appName)
   const primaryColor = useConfigStore((s) => s.primaryColor)
   const logoUrl = useConfigStore((s) => s.logoUrl)
@@ -73,6 +84,21 @@ export default function Layout({ children }: LayoutProps) {
   const [mobileOpen, setMobileOpen] = useState(false)
   const [activeFolder, setActiveFolder] = useState('INBOX')
   const [composeOpen, setComposeOpen] = useState(false)
+  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null)
+
+  const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => setAnchorEl(event.currentTarget)
+  const handleMenuClose = () => setAnchorEl(null)
+
+  const handleLogout = async () => {
+    handleMenuClose()
+    try {
+      await supabase.auth.signOut()
+    } catch {
+      // Ignore
+    }
+    clearAuth()
+    navigate('/login')
+  }
 
   // Pre-fill search bar from URL when on /search page
   const urlQuery = location.pathname === '/search' ? (searchParams.get('q') || '') : ''
@@ -339,6 +365,7 @@ export default function Layout({ children }: LayoutProps) {
               <SettingsIcon />
             </IconButton>
             <Avatar
+              onClick={handleMenuOpen}
               sx={{
                 width: 36,
                 height: 36,
@@ -350,6 +377,70 @@ export default function Layout({ children }: LayoutProps) {
             >
               {userInitial}
             </Avatar>
+
+            <Menu
+              anchorEl={anchorEl}
+              open={Boolean(anchorEl)}
+              onClose={handleMenuClose}
+              PaperProps={{
+                sx: {
+                  bgcolor: '#2d2d2d',
+                  color: '#e8eaed',
+                  border: '1px solid rgba(255,255,255,0.1)',
+                  borderRadius: 2,
+                  minWidth: 220,
+                  boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
+                  mt: 1,
+                },
+              }}
+            >
+              <Box sx={{ px: 2, py: 1.5 }}>
+                <Typography variant="body2" sx={{ fontWeight: 600, color: '#fff' }}>
+                  {email || 'User Account'}
+                </Typography>
+                <Typography variant="caption" sx={{ color: '#94a3b8' }}>
+                  Team Archon Mail
+                </Typography>
+              </Box>
+              <Divider sx={{ borderColor: 'rgba(255,255,255,0.1)' }} />
+
+              {mailboxes.length > 0 && (
+                <Box sx={{ py: 0.5 }}>
+                  <Typography variant="caption" sx={{ px: 2, py: 0.5, color: '#94a3b8', display: 'block', fontWeight: 600 }}>
+                    MAILBOXES
+                  </Typography>
+                  {mailboxes.map((mb) => (
+                    <MenuItem
+                      key={mb.id}
+                      onClick={() => {
+                        setActiveMailboxId(mb.id)
+                        handleMenuClose()
+                      }}
+                      sx={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        fontSize: '0.85rem',
+                        '&:hover': { bgcolor: 'rgba(255,255,255,0.06)' },
+                      }}
+                    >
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <MailOutlineIcon fontSize="small" sx={{ color: '#38bdf8' }} />
+                        <Typography variant="body2">{mb.email}</Typography>
+                      </Box>
+                      {activeMailboxId === mb.id && <CheckIcon fontSize="small" sx={{ color: '#38bdf8' }} />}
+                    </MenuItem>
+                  ))}
+                  <Divider sx={{ borderColor: 'rgba(255,255,255,0.1)' }} />
+                </Box>
+              )}
+
+              <MenuItem onClick={handleLogout} sx={{ color: '#f87171', '&:hover': { bgcolor: 'rgba(248,113,113,0.1)' } }}>
+                <ListItemIcon sx={{ color: '#f87171', minWidth: 32 }}>
+                  <LogoutIcon fontSize="small" />
+                </ListItemIcon>
+                <ListItemText primary="Sign Out" />
+              </MenuItem>
+            </Menu>
           </Box>
         </Toolbar>
       </AppBar>

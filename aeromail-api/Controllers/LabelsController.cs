@@ -12,16 +12,24 @@ namespace AeroMail.Api.Controllers;
 public class LabelsController : ControllerBase
 {
     private readonly LabelService _labels;
+    private readonly IMailboxService? _mailboxService;
 
-    public LabelsController(LabelService labels)
+    public LabelsController(LabelService labels, IMailboxService? mailboxService = null)
     {
         _labels = labels;
+        _mailboxService = mailboxService;
     }
 
     // ─── Helpers ──────────────────────────────────────────────────────────────
 
-    private Guid GetAccountId()
+    private async Task<Guid> GetAccountIdAsync()
     {
+        if (_mailboxService != null)
+        {
+            var (mailbox, _) = await _mailboxService.GetAuthorizedMailboxAsync(User);
+            return mailbox.Id;
+        }
+
         var sub = User.FindFirstValue(ClaimTypes.NameIdentifier)
                ?? User.FindFirstValue("sub")
                ?? throw new UnauthorizedAccessException("Missing account id claim.");
@@ -37,7 +45,7 @@ public class LabelsController : ControllerBase
     [HttpGet]
     public async Task<IActionResult> GetLabels()
     {
-        var accountId = GetAccountId();
+        var accountId = await GetAccountIdAsync();
         var labels = await _labels.GetLabelsAsync(accountId);
         return Ok(labels);
     }
@@ -54,7 +62,7 @@ public class LabelsController : ControllerBase
         if (string.IsNullOrWhiteSpace(request.Name))
             return BadRequest(new { error = "Label name is required." });
 
-        var accountId = GetAccountId();
+        var accountId = await GetAccountIdAsync();
         var label = await _labels.CreateLabelAsync(accountId, request.Name, request.Color ?? "#1a73e8");
         return CreatedAtAction(nameof(GetLabels), new { id = label.Id }, label);
     }

@@ -1,0 +1,32 @@
+[Unit]
+Description=Team Archon Mail API (ASP.NET Core)
+After=network.target stalwart-mail.service
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/teamarchon-api
+ExecStart=/usr/bin/dotnet /var/www/teamarchon-api/AeroMail.Api.dll
+Restart=always
+RestartSec=10
+KillSignal=SIGINT
+SyslogIdentifier=teamarchon-api
+
+# Environment Configuration
+Environment=ASPNETCORE_ENVIRONMENT=Production
+Environment=ASPNETCORE_URLS=http://127.0.0.1:8787
+EnvironmentFile=/etc/teamarchon-api/teamarchon-api.env
+
+# Strict Resource Constraints to safely protect 1GB VPS & CMSClipper
+MemoryMax=250M
+MemoryHigh=200M
+CPUQuota=80%
+
+# Sandboxing
+ProtectSystem=full
+ProtectHome=true
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

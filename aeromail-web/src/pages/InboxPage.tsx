@@ -8,6 +8,7 @@ import {
   IconButton,
   Skeleton,
   Tooltip,
+  Alert,
 } from '@mui/material'
 import StarBorderIcon from '@mui/icons-material/StarBorder'
 import StarIcon from '@mui/icons-material/Star'
@@ -17,6 +18,7 @@ import SnoozeIcon from '@mui/icons-material/Snooze'
 import InboxIcon from '@mui/icons-material/Inbox'
 import apiClient from '../api/client'
 import { getAvatarColor } from '../utils/avatarColor'
+import { useAuthStore } from '../store/authStore'
 
 interface Message {
   uid: number
@@ -266,8 +268,12 @@ export default function InboxPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
+  const activeMailboxId = useAuthStore((s) => s.activeMailboxId)
+  const isApproved = useAuthStore((s) => s.isApproved)
+
   useEffect(() => {
     const fetchMessages = async () => {
+      setLoading(true)
       try {
         const res = await apiClient.get('/messages', {
           params: { folder: 'INBOX', limit: 50 },
@@ -281,7 +287,7 @@ export default function InboxPage() {
       }
     }
     fetchMessages()
-  }, [])
+  }, [activeMailboxId])
 
   const handleNavigate = (uid: number) => {
     navigate(`/thread/${uid}?folder=INBOX`)
@@ -303,6 +309,13 @@ export default function InboxPage() {
 
   return (
     <Box sx={{ minHeight: '100vh', background: '#1f1f1f' }}>
+      {/* Pending Approval Banner */}
+      {!isApproved && (
+        <Alert severity="warning" sx={{ m: 2, borderRadius: 2 }}>
+          Account Pending Approval: Your account is awaiting administrative approval for full mailbox access.
+        </Alert>
+      )}
+
       {/* Toolbar */}
       <Box
         sx={{

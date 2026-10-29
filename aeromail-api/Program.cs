@@ -6,32 +6,77 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Configure port to listen on all interfaces or ASPNETCORE_URLS (defaults to 5000 / 8787)
 builder.Services.AddControllers()
     .AddJsonOptions(o => o.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase);
+
 builder.Services.AddSingleton<DatabaseService>();
 
 // ─── Core services ────────────────────────────────────────────────────────────
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IMailboxService, MailboxService>();
+builder.Services.AddScoped<MailboxService>();
 builder.Services.AddScoped<IImapService, ImapService>();
 builder.Services.AddScoped<SmtpService>();
 
-// ─── Phase 3: Labels, Filters, Search ────────────────────────────────────────
+// ─── Labels, Filters, Search ─────────────────────────────────────────────────
 builder.Services.AddScoped<LabelService>();
 builder.Services.AddScoped<FilterService>();
 
-// ─── Phase 5: Setup wizard ───────────────────────────────────────────────────
+// ─── Setup wizard ────────────────────────────────────────────────────────────
 builder.Services.AddScoped<SetupService>();
 
 builder.Services.AddCors(o => o.AddPolicy("AllowWeb", p =>
-    p.WithOrigins("http://localhost:3000", "https://webmail.aeroverra.com")
-     .AllowAnyMethod().AllowAnyHeader()));
+    p.SetIsOriginAllowed(origin =>
+        origin.StartsWith("http://localhost:") ||
+        origin.StartsWith("https://mail.teamarchon.in") ||
+        origin.StartsWith("https://teamarchon.in") ||
+        origin.EndsWith(".vercel.app") ||
+        origin.Contains("aeroverra.com"))
+     .AllowAnyMethod()
+     .AllowAnyHeader()
+     .AllowCredentials()));
 
-// ─── JWT Authentication ───────────────────────────────────────────────────────
-var jwtSecret = builder.Configuration["Jwt:Secret"] ?? "CHANGE_ME_IN_PRODUCTION_MIN_32_CHARS!!";
-var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "aeromail";
-var jwtAudience = builder.Configuration["Jwt:Audience"] ?? "aeromail-users";
+// ─── Supabase Auth & JWT Authentication ───────────────────────────────────────
+var supabaseUrl = builder.Configuration["Supabase:Url"]
+    ?? Environment.GetEnvironmentVariable("SUPABASE_URL")
+    ?? "";
+var supabaseJwtSecret = builder.Configuration["Supabase:JwtSecret"]
+    ?? Environment.GetEnvironmentVariable("SUPABASE_JWT_SECRET")
+    ?? "";
+
+var fallbackSecret = builder.Configuration["Jwt:Secret"] ?? "SuperSecretJwtKeyWith32Characters!!";
+var activeSecret = !string.IsNullOrWhiteSpace(supabaseJwtSecret) ? supabaseJwtSecret : fallbackSecret;
+
+var validIssuers = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+{
+    "aeromail",
+    "aeromail-test",
+    "teamarchon"
+};
+if (!string.IsNullOrWhiteSpace(supabaseUrl))
+{
+    validIssuers.Add($"{supabaseUrl.TrimEnd('/')}/auth/v1");
+}
+if (!string.IsNullOrWhiteSpace(builder.Configuration["Jwt:Issuer"]))
+{
+    validIssuers.Add(builder.Configuration["Jwt:Issuer"]!);
+}
+
+var validAudiences = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+{
+    "authenticated",
+    "aeromail-users",
+    "aeromail-test-users",
+    "teamarchon-users"
+};
+if (!string.IsNullOrWhiteSpace(builder.Configuration["Jwt:Audience"]))
+{
+    validAudiences.Add(builder.Configuration["Jwt:Audience"]!);
+}
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
@@ -39,12 +84,13 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         options.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuer = true,
+            ValidIssuers = validIssuers,
             ValidateAudience = true,
+            ValidAudiences = validAudiences,
             ValidateLifetime = true,
             ValidateIssuerSigningKey = true,
-            ValidIssuer = jwtIssuer,
-            ValidAudience = jwtAudience,
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecret)),
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(activeSecret)),
+            ClockSkew = TimeSpan.FromMinutes(2),
         };
         options.Events = new JwtBearerEvents
         {
@@ -52,7 +98,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             {
                 var authService = ctx.HttpContext.RequestServices.GetRequiredService<IAuthService>();
                 var jti = ctx.Principal?.FindFirst("jti")?.Value ?? string.Empty;
-                if (authService.IsTokenRevoked(jti))
+                if (!string.IsNullOrEmpty(jti) && authService.IsTokenRevoked(jti))
                     ctx.Fail("Token has been revoked");
                 return Task.CompletedTask;
             }

@@ -12,12 +12,18 @@ public class MessagesController : ControllerBase
     private readonly IImapService _imapService;
     private readonly SmtpService _smtpService;
     private readonly AuthService _authService;
+    private readonly IMailboxService? _mailboxService;
 
-    public MessagesController(IImapService imapService, SmtpService smtpService, AuthService authService)
+    public MessagesController(
+        IImapService imapService,
+        SmtpService smtpService,
+        AuthService authService,
+        IMailboxService? mailboxService = null)
     {
         _imapService = imapService;
         _smtpService = smtpService;
         _authService = authService;
+        _mailboxService = mailboxService;
     }
 
     // ─── GET /api/messages ────────────────────────────────────────────────────
@@ -126,17 +132,38 @@ public class MessagesController : ControllerBase
 
         try
         {
-            var (email, _, _, _, password) = _authService.DecryptCredentials(User);
+            string email;
+            string fromName;
+            string password;
+            string smtpHost;
+            int smtpPort;
+            bool smtpSsl;
 
-            var smtpHost = User.FindFirst("smtp_host")?.Value ?? "";
-            var smtpPortStr = User.FindFirst("smtp_port")?.Value ?? "587";
-            var smtpSslStr = User.FindFirst("smtp_ssl")?.Value ?? "false";
+            if (_mailboxService != null)
+            {
+                var (mailbox, pass) = await _mailboxService.GetAuthorizedMailboxAsync(User);
+                email = mailbox.Email;
+                fromName = mailbox.DisplayName ?? email;
+                password = pass;
+                smtpHost = mailbox.SmtpHost;
+                smtpPort = mailbox.SmtpPort;
+                smtpSsl = mailbox.SmtpSsl;
+            }
+            else
+            {
+                var creds = _authService.DecryptCredentials(User);
+                email = creds.email;
+                fromName = email;
+                password = creds.password;
+                smtpHost = User.FindFirst("smtp_host")?.Value ?? "";
+                var smtpPortStr = User.FindFirst("smtp_port")?.Value ?? "587";
+                var smtpSslStr = User.FindFirst("smtp_ssl")?.Value ?? "false";
+                smtpPort = int.TryParse(smtpPortStr, out var sp) ? sp : 587;
+                smtpSsl = smtpSslStr.Equals("true", StringComparison.OrdinalIgnoreCase);
+            }
 
             if (string.IsNullOrEmpty(smtpHost))
                 return BadRequest(new { error = "SMTP server not configured. Please log in again." });
-
-            var smtpPort = int.TryParse(smtpPortStr, out var sp) ? sp : 587;
-            var smtpSsl = smtpSslStr.Equals("true", StringComparison.OrdinalIgnoreCase);
 
             using var smtpClient = await _smtpService.ConnectAsync(smtpHost, smtpPort, smtpSsl, email, password);
 
@@ -146,7 +173,7 @@ public class MessagesController : ControllerBase
                 var original = await _imapService.GetMessageAsync(request.ReplyToUid.Value, request.ReplyToFolder ?? "INBOX");
                 if (original != null)
                 {
-                    await _smtpService.ReplyAsync(smtpClient, original, email, email, request.Body ?? "");
+                    await _smtpService.ReplyAsync(smtpClient, original, email, fromName, request.Body ?? "");
                     await smtpClient.DisconnectAsync(true);
                     return Ok(new { status = "sent", mode = "reply" });
                 }
@@ -155,7 +182,7 @@ public class MessagesController : ControllerBase
             await _smtpService.SendAsync(
                 smtpClient,
                 from: email,
-                fromName: email,
+                fromName: fromName,
                 to: request.To,
                 cc: request.Cc ?? new List<string>(),
                 subject: request.Subject,

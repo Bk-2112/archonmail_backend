@@ -9,11 +9,11 @@ export interface AppConfig {
 }
 
 const DEFAULTS: AppConfig = {
-  appName: 'AeroMail',
-  primaryColor: '#00BCD4',
+  appName: 'Team Archon Mail',
+  primaryColor: '#2563eb',
   logoUrl: null,
   faviconUrl: null,
-  themeColor: '#00BCD4',
+  themeColor: '#2563eb',
 }
 
 interface ConfigState extends AppConfig {

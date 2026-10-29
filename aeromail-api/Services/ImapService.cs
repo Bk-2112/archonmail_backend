@@ -16,11 +16,16 @@ public class ImapService : IImapService
 {
     private readonly IHttpContextAccessor _httpContextAccessor;
     private readonly AuthService _authService;
+    private readonly IMailboxService? _mailboxService;
 
-    public ImapService(IHttpContextAccessor httpContextAccessor, AuthService authService)
+    public ImapService(
+        IHttpContextAccessor httpContextAccessor,
+        AuthService authService,
+        IMailboxService? mailboxService = null)
     {
         _httpContextAccessor = httpContextAccessor;
         _authService = authService;
+        _mailboxService = mailboxService;
     }
 
     // ─── Connection ───────────────────────────────────────────────────────────
@@ -43,14 +48,21 @@ public class ImapService : IImapService
         return client;
     }
 
-    // ─── Internal helper: get credentials from JWT ───────────────────────────
+    // ─── Internal helper: get credentials from MailboxService or JWT ─────────
 
     private async Task<ImapClient> ConnectFromJwtAsync()
     {
         var user = _httpContextAccessor.HttpContext?.User
             ?? throw new UnauthorizedAccessException("No HTTP context.");
-        var (email, host, port, ssl, password) = _authService.DecryptCredentials(user);
-        return await ConnectAsync(host, port, ssl, email, password);
+
+        if (_mailboxService != null)
+        {
+            var (mailbox, password) = await _mailboxService.GetAuthorizedMailboxAsync(user);
+            return await ConnectAsync(mailbox.ImapHost, mailbox.ImapPort, mailbox.ImapSsl, mailbox.Email, password);
+        }
+
+        var (email, host, port, ssl, fallbackPwd) = _authService.DecryptCredentials(user);
+        return await ConnectAsync(host, port, ssl, email, fallbackPwd);
     }
 
     // ─── Folders ─────────────────────────────────────────────────────────────

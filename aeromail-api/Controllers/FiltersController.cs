@@ -12,16 +12,24 @@ namespace AeroMail.Api.Controllers;
 public class FiltersController : ControllerBase
 {
     private readonly FilterService _filters;
+    private readonly IMailboxService? _mailboxService;
 
-    public FiltersController(FilterService filters)
+    public FiltersController(FilterService filters, IMailboxService? mailboxService = null)
     {
         _filters = filters;
+        _mailboxService = mailboxService;
     }
 
     // ─── Helpers ──────────────────────────────────────────────────────────────
 
-    private Guid GetAccountId()
+    private async Task<Guid> GetAccountIdAsync()
     {
+        if (_mailboxService != null)
+        {
+            var (mailbox, _) = await _mailboxService.GetAuthorizedMailboxAsync(User);
+            return mailbox.Id;
+        }
+
         var sub = User.FindFirstValue(ClaimTypes.NameIdentifier)
                ?? User.FindFirstValue("sub")
                ?? throw new UnauthorizedAccessException("Missing account id claim.");
@@ -36,7 +44,7 @@ public class FiltersController : ControllerBase
     [HttpGet]
     public async Task<IActionResult> GetFilters()
     {
-        var accountId = GetAccountId();
+        var accountId = await GetAccountIdAsync();
         var filters = await _filters.GetFiltersAsync(accountId);
         return Ok(filters);
     }
@@ -53,7 +61,7 @@ public class FiltersController : ControllerBase
         if (string.IsNullOrWhiteSpace(request.Action))
             return BadRequest(new { error = "action is required." });
 
-        var accountId = GetAccountId();
+        var accountId = await GetAccountIdAsync();
 
         var filter = new AeroFilter
         {

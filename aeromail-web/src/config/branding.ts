@@ -8,10 +8,11 @@ export interface BrandConfig {
 }
 
 export const DEFAULT_BRAND: BrandConfig = {
-  appName: 'AeroMail',
-  primaryColor: '#00BCD4',
-  accentColor: '#1a73e8',
-  logoText: 'AeroMail',
+  appName: 'Team Archon Mail',
+  primaryColor: '#2563eb',
+  accentColor: '#38bdf8',
+  logoText: 'Team Archon',
+  logoSubtext: 'Mail',
 }
 
 // Load from window.AEROMAIL_CONFIG if set (injected by server), else defaults
