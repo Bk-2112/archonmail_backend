@@ -1,0 +1,14 @@
+node_modules/
+dist/
+bin/
+obj/
+.env
+*.user
+*.log
+.DS_Store
+nginx/ssl/
+TestResults/
+coverage/
+*.tsbuildinfo
+.vs/
+.idea/

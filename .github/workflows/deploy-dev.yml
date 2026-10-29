@@ -1,0 +1,21 @@
+name: Deploy to Staging
+on:
+  push:
+    branches: [develop]
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy to dev VM
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.DEV_HOST }}
+          username: ${{ secrets.DEV_USER }}
+          key: ${{ secrets.DEV_SSH_KEY }}
+          script: |
+            cd /opt/aeromail
+            git pull origin develop
+            docker compose build --no-cache
+            docker compose up -d
+            docker compose ps
