@@ -1,6 +1,6 @@
 [Unit]
 Description=Team Archon Mail API (ASP.NET Core)
-After=network.target stalwart-mail.service
+After=network.target stalwart.service
 
 [Service]
 Type=simple
