@@ -1,14 +1,16 @@
 export interface UserRecord {
   id: string
-  discordId: string
+  discordId?: string
   discordUsername: string
-  discordAvatar: string
+  discordAvatar?: string
   email: string
   roles: string[]
   isActive: boolean
   lastLoginAt?: string
   createdAt: string
 }
+
+export type User = UserRecord
 
 export interface MailboxRecord {
   id: string
@@ -20,6 +22,8 @@ export interface MailboxRecord {
   smtpPort: number
   isActive: boolean
 }
+
+export type Mailbox = MailboxRecord
 
 export interface EmailAttachment {
   fileName: string

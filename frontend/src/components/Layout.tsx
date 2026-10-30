@@ -10,6 +10,7 @@ import {
   Search,
   LogOut,
   Mail,
+  Shield,
   ShieldAlert,
   ChevronDown
 } from 'lucide-react'
@@ -28,12 +29,14 @@ export default function Layout({ children }: LayoutProps) {
   const [searchQuery, setSearchQuery] = useState('')
 
   const activeMailbox = mailboxes.find((m) => m.id === activeMailboxId) || mailboxes[0]
+  const isAdmin = user?.roles?.includes('admin')
 
   const navItems = [
     { label: 'Inbox', path: '/inbox', icon: Inbox },
     { label: 'Sent', path: '/sent', icon: Send },
     { label: 'Drafts', path: '/drafts', icon: FileText },
     { label: 'Trash', path: '/trash', icon: Trash2 },
+    ...(isAdmin ? [{ label: 'Admin Panel', path: '/admin', icon: Shield }] : [])
   ]
 
   const handleSearchSubmit = (e: React.FormEvent) => {
@@ -85,9 +88,16 @@ export default function Layout({ children }: LayoutProps) {
 
         {/* Mailbox Selector */}
         <div className="mailbox-selector">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-muted)', fontSize: '11px', textTransform: 'uppercase', fontWeight: 700, marginBottom: '6px' }}>
-            <Mail size={12} />
-            <span>Active Mailbox</span>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: 'var(--text-muted)', fontSize: '11px', textTransform: 'uppercase', fontWeight: 700, marginBottom: '6px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <Mail size={12} />
+              <span>{isAdmin ? 'All Inboxes' : 'Active Mailbox'}</span>
+            </div>
+            {isAdmin && (
+              <span style={{ color: 'var(--accent-red)', fontSize: '9px', background: 'rgba(211, 47, 47, 0.15)', padding: '2px 6px', borderRadius: '4px' }}>
+                ADMIN
+              </span>
+            )}
           </div>
           {mailboxes.length > 0 ? (
             <select

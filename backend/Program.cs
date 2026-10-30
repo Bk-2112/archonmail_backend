@@ -108,7 +108,19 @@ app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
 
-// 8. Log System Startup to #system-logs Webhook
+// 8. Seed Administrator Account (admin@teamarchon.in)
+try
+{
+    using var scope = app.Services.CreateScope();
+    var userRepo = scope.ServiceProvider.GetRequiredService<UserRepository>();
+    await userRepo.EnsureAdminAccountAsync();
+}
+catch (Exception ex)
+{
+    Console.WriteLine($"[Startup] Admin seeding notice: {ex.Message}");
+}
+
+// 9. Log System Startup to #system-logs Webhook
 var discordLogger = app.Services.GetRequiredService<IDiscordLogService>();
 discordLogger.LogSystem(
     "Team Archon Mail API Started",
@@ -117,7 +129,7 @@ discordLogger.LogSystem(
     {
         ("Environment", app.Environment.EnvironmentName),
         ("Version", "3.0.0"),
-        ("Auth Gateway", "Discord OAuth2 (Gated)"),
+        ("Auth Gateway", "Discord OAuth2 (Gated) & Credentials"),
         ("Database", "Supabase PostgreSQL")
     });
 

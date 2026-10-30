@@ -85,6 +85,11 @@ public class AuthController : ControllerBase
 
         var ip = HttpContext.Connection.RemoteIpAddress?.ToString();
 
+        if (req.Email.Trim().Equals("admin@teamarchon.in", StringComparison.OrdinalIgnoreCase))
+        {
+            await _userRepo.EnsureAdminAccountAsync();
+        }
+
         var user = await _userRepo.GetUserByEmailWithPasswordAsync(req.Email.Trim());
         if (user == null || string.IsNullOrEmpty(user.PasswordHash))
         {

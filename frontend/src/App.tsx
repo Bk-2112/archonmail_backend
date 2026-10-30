@@ -5,6 +5,7 @@ import LoginPage from './pages/LoginPage'
 import AuthCallbackPage from './pages/AuthCallbackPage'
 import InboxPage from './pages/InboxPage'
 import ThreadPage from './pages/ThreadPage'
+import AdminPage from './pages/AdminPage'
 import Layout from './components/Layout'
 
 function RequireAuth({ children }: { children: JSX.Element }) {
@@ -31,6 +32,7 @@ export default function App() {
         <Route path="/drafts" element={<RequireAuth><Layout><InboxPage /></Layout></RequireAuth>} />
         <Route path="/trash" element={<RequireAuth><Layout><InboxPage /></Layout></RequireAuth>} />
         <Route path="/thread/:id" element={<RequireAuth><Layout><ThreadPage /></Layout></RequireAuth>} />
+        <Route path="/admin" element={<RequireAuth><Layout><AdminPage /></Layout></RequireAuth>} />
 
         {/* Root Fallback */}
         <Route path="/" element={<Navigate to={token ? "/inbox" : "/login"} replace />} />
