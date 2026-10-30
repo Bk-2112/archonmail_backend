@@ -186,7 +186,7 @@ public class DiscordAuthService : IDiscordAuthService
                 DiscordUsername = discordUser.Username,
                 DiscordAvatar = discordUser.GetAvatarUrl(),
                 Email = discordUser.Email ?? $"{discordUser.Username.ToLowerInvariant()}@teamarchon.in",
-                Roles = new List<string> { "member" }
+                Roles = new[] { "member" }
             }
         };
     }

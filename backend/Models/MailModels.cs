@@ -9,7 +9,7 @@ public class UserRecord
     public string DiscordUsername { get; set; } = string.Empty;
     public string? DiscordAvatar { get; set; }
     public string Email { get; set; } = string.Empty;
-    public List<string> Roles { get; set; } = new();
+    public string[] Roles { get; set; } = Array.Empty<string>();
     public bool IsActive { get; set; } = true;
     public DateTime? LastLoginAt { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

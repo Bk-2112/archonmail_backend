@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useRef } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import apiClient from '../api/client'
 import { useAuthStore } from '../store/authStore'
@@ -9,6 +9,7 @@ export default function AuthCallbackPage() {
   const navigate = useNavigate()
   const setAuth = useAuthStore((state) => state.setAuth)
   const [statusText, setStatusText] = useState('Verifying Discord credentials...')
+  const exchangedRef = useRef(false)
 
   useEffect(() => {
     const code = searchParams.get('code')
@@ -18,6 +19,9 @@ export default function AuthCallbackPage() {
       navigate('/login?error=oauth_failed', { replace: true })
       return
     }
+
+    if (exchangedRef.current) return
+    exchangedRef.current = true
 
     const redirectUri = window.location.origin + '/auth/callback'
 

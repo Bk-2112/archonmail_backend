@@ -51,7 +51,7 @@ public class UserRepository
             profile.DiscordUsername,
             profile.DiscordAvatar,
             profile.Email,
-            Roles = profile.Roles.ToArray()
+            profile.Roles
         });
 
         // Ensure default domain mailbox exists and is assigned
