@@ -72,19 +72,28 @@ public class EncryptionService
     {
         if (string.IsNullOrEmpty(cipherText)) return string.Empty;
 
-        var fullBytes = Convert.FromBase64String(cipherText);
-        using var aes = Aes.Create();
-        aes.Key = _key;
+        try
+        {
+            var fullBytes = Convert.FromBase64String(cipherText);
+            if (fullBytes.Length < 32) return cipherText; // AES with 16-byte IV is at least 32 bytes
 
-        var iv = new byte[aes.BlockSize / 8];
-        var cipherBytes = new byte[fullBytes.Length - iv.Length];
+            using var aes = Aes.Create();
+            aes.Key = _key;
 
-        Array.Copy(fullBytes, 0, iv, 0, iv.Length);
-        Array.Copy(fullBytes, iv.Length, cipherBytes, 0, cipherBytes.Length);
-        aes.IV = iv;
+            var iv = new byte[aes.BlockSize / 8];
+            var cipherBytes = new byte[fullBytes.Length - iv.Length];
 
-        using var decryptor = aes.CreateDecryptor(aes.Key, aes.IV);
-        var plainBytes = decryptor.TransformFinalBlock(cipherBytes, 0, cipherBytes.Length);
-        return Encoding.UTF8.GetString(plainBytes);
+            Array.Copy(fullBytes, 0, iv, 0, iv.Length);
+            Array.Copy(fullBytes, iv.Length, cipherBytes, 0, cipherBytes.Length);
+            aes.IV = iv;
+
+            using var decryptor = aes.CreateDecryptor(aes.Key, aes.IV);
+            var plainBytes = decryptor.TransformFinalBlock(cipherBytes, 0, cipherBytes.Length);
+            return Encoding.UTF8.GetString(plainBytes);
+        }
+        catch
+        {
+            return cipherText;
+        }
     }
 }

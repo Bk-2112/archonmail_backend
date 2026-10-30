@@ -33,7 +33,15 @@ public class StalwartMailService
         var options = mailbox.ImapSsl ? SecureSocketOptions.SslOnConnect : SecureSocketOptions.StartTlsWhenAvailable;
 
         await client.ConnectAsync(mailbox.ImapHost, mailbox.ImapPort, options);
-        await client.AuthenticateAsync(mailbox.Email, plainPassword);
+        try
+        {
+            await client.AuthenticateAsync(mailbox.Email, plainPassword);
+        }
+        catch
+        {
+            var userOnly = mailbox.Email.Split('@')[0];
+            await client.AuthenticateAsync(userOnly, plainPassword);
+        }
 
         var folder = await client.GetFolderAsync(folderName) ?? client.Inbox;
         await folder.OpenAsync(FolderAccess.ReadOnly);
@@ -85,7 +93,15 @@ public class StalwartMailService
         var options = mailbox.ImapSsl ? SecureSocketOptions.SslOnConnect : SecureSocketOptions.StartTlsWhenAvailable;
 
         await client.ConnectAsync(mailbox.ImapHost, mailbox.ImapPort, options);
-        await client.AuthenticateAsync(mailbox.Email, plainPassword);
+        try
+        {
+            await client.AuthenticateAsync(mailbox.Email, plainPassword);
+        }
+        catch
+        {
+            var userOnly = mailbox.Email.Split('@')[0];
+            await client.AuthenticateAsync(userOnly, plainPassword);
+        }
 
         var folder = await client.GetFolderAsync(folderName) ?? client.Inbox;
         await folder.OpenAsync(FolderAccess.ReadWrite);
@@ -164,11 +180,24 @@ public class StalwartMailService
             using var client = new SmtpClient();
             client.ServerCertificateValidationCallback = (s, c, h, e) => true;
 
+            // Remove challenge mechanisms that fail on Stalwart internal TLS
+            client.AuthenticationMechanisms.Remove("XOAUTH2");
+            client.AuthenticationMechanisms.Remove("CRAM-MD5");
+            client.AuthenticationMechanisms.Remove("DIGEST-MD5");
+
             var plainPassword = _encryption.Decrypt(mailbox.EncryptedPassword);
             var options = mailbox.SmtpSsl ? SecureSocketOptions.SslOnConnect : SecureSocketOptions.StartTlsWhenAvailable;
 
             await client.ConnectAsync(mailbox.SmtpHost, mailbox.SmtpPort, options);
-            await client.AuthenticateAsync(mailbox.Email, plainPassword);
+            try
+            {
+                await client.AuthenticateAsync(mailbox.Email, plainPassword);
+            }
+            catch
+            {
+                var userOnly = mailbox.Email.Split('@')[0];
+                await client.AuthenticateAsync(userOnly, plainPassword);
+            }
 
             await client.SendAsync(message);
             await client.DisconnectAsync(true);
