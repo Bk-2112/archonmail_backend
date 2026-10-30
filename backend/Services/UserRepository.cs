@@ -67,13 +67,56 @@ public class UserRepository
 
         const string sql = @"
             SELECT id, discord_id AS DiscordId, discord_username AS DiscordUsername, 
-                   discord_avatar AS DiscordAvatar, email AS Email, roles AS Roles, 
-                   is_active AS IsActive, last_login_at AS LastLoginAt, 
+                   discord_avatar AS DiscordAvatar, email AS Email, password_hash AS PasswordHash, 
+                   roles AS Roles, is_active AS IsActive, last_login_at AS LastLoginAt, 
                    created_at AS CreatedAt, updated_at AS UpdatedAt
             FROM public.users 
             WHERE id = @userId AND is_active = true;";
 
         return await conn.QuerySingleOrDefaultAsync<UserRecord>(sql, new { userId });
+    }
+
+    public async Task<UserRecord?> GetUserByEmailWithPasswordAsync(string email)
+    {
+        await using var conn = _db.GetConnection();
+        await conn.OpenAsync();
+
+        const string sql = @"
+            SELECT id, discord_id AS DiscordId, discord_username AS DiscordUsername, 
+                   discord_avatar AS DiscordAvatar, email AS Email, password_hash AS PasswordHash, 
+                   roles AS Roles, is_active AS IsActive, last_login_at AS LastLoginAt, 
+                   created_at AS CreatedAt, updated_at AS UpdatedAt
+            FROM public.users 
+            WHERE LOWER(email) = LOWER(@email) AND is_active = true;";
+
+        return await conn.QuerySingleOrDefaultAsync<UserRecord>(sql, new { email });
+    }
+
+    public async Task<UserRecord> CreateEmailUserAsync(string email, string passwordHash, string? displayName)
+    {
+        await using var conn = _db.GetConnection();
+        await conn.OpenAsync();
+
+        var username = string.IsNullOrWhiteSpace(displayName) ? email.Split('@')[0] : displayName;
+
+        const string sql = @"
+            INSERT INTO public.users (discord_id, discord_username, discord_avatar, email, password_hash, roles, is_active, last_login_at, created_at, updated_at)
+            VALUES (NULL, @username, NULL, @email, @passwordHash, @roles, true, NOW(), NOW(), NOW())
+            RETURNING id, discord_id AS DiscordId, discord_username AS DiscordUsername, 
+                      discord_avatar AS DiscordAvatar, email AS Email, password_hash AS PasswordHash, 
+                      roles AS Roles, is_active AS IsActive, last_login_at AS LastLoginAt, 
+                      created_at AS CreatedAt, updated_at AS UpdatedAt;";
+
+        var user = await conn.QuerySingleAsync<UserRecord>(sql, new
+        {
+            username,
+            email,
+            passwordHash,
+            roles = new[] { "member" }
+        });
+
+        await EnsureDefaultMailboxAssignedAsync(conn, user);
+        return user;
     }
 
     public async Task<List<MailboxRecord>> GetAssignedMailboxesAsync(Guid userId)

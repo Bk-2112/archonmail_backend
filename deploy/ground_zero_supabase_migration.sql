@@ -18,13 +18,14 @@ DROP TABLE IF EXISTS public.messages CASCADE;
 DROP TABLE IF EXISTS public.system_settings CASCADE;
 DROP VIEW IF EXISTS public.accounts CASCADE;
 
--- 1. Users Table: Managed via Discord OAuth2
+-- 1. Users Table: Managed via Discord OAuth2 or Email/Password Credentials
 CREATE TABLE public.users (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    discord_id VARCHAR(64) UNIQUE NOT NULL,
-    discord_username VARCHAR(100) NOT NULL,
+    discord_id VARCHAR(64) UNIQUE,
+    discord_username VARCHAR(100),
     discord_avatar VARCHAR(255),
-    email VARCHAR(255) NOT NULL,
+    email VARCHAR(255) NOT NULL UNIQUE,
+    password_hash VARCHAR(255), -- Secure PBKDF2 hash (salt.hash)
     roles TEXT[] DEFAULT '{member}',
     is_active BOOLEAN NOT NULL DEFAULT true,
     last_login_at TIMESTAMPTZ,
@@ -92,3 +93,9 @@ VALUES (
     true
 )
 ON CONFLICT (email) DO NOTHING;
+
+-- ==============================================================================
+-- Quick Migration Patch for existing databases (run this if you already deployed):
+-- ALTER TABLE public.users ADD COLUMN IF NOT EXISTS password_hash VARCHAR(255);
+-- ALTER TABLE public.users ALTER COLUMN discord_id DROP NOT NULL;
+-- ==============================================================================

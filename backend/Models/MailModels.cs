@@ -5,10 +5,14 @@ namespace TeamArchon.Mail.Api.Models;
 public class UserRecord
 {
     public Guid Id { get; set; }
-    public string DiscordId { get; set; } = string.Empty;
+    public string? DiscordId { get; set; }
     public string DiscordUsername { get; set; } = string.Empty;
     public string? DiscordAvatar { get; set; }
     public string Email { get; set; } = string.Empty;
+
+    [JsonIgnore]
+    public string? PasswordHash { get; set; }
+
     public string[] Roles { get; set; } = Array.Empty<string>();
     public bool IsActive { get; set; } = true;
     public DateTime? LastLoginAt { get; set; }
@@ -86,6 +90,19 @@ public class DiscordLoginRequest
 {
     public string Code { get; set; } = string.Empty;
     public string RedirectUri { get; set; } = string.Empty;
+}
+
+public class EmailLoginRequest
+{
+    public string Email { get; set; } = string.Empty;
+    public string Password { get; set; } = string.Empty;
+}
+
+public class EmailRegisterRequest
+{
+    public string Email { get; set; } = string.Empty;
+    public string Password { get; set; } = string.Empty;
+    public string? DisplayName { get; set; }
 }
 
 public class AuthResponse

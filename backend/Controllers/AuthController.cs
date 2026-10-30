@@ -76,6 +76,75 @@ public class AuthController : ControllerBase
         });
     }
 
+    [HttpPost("login")]
+    [AllowAnonymous]
+    public async Task<IActionResult> EmailLogin([FromBody] EmailLoginRequest req)
+    {
+        if (string.IsNullOrWhiteSpace(req.Email) || string.IsNullOrWhiteSpace(req.Password))
+            return BadRequest(new { message = "Email and password are required." });
+
+        var ip = HttpContext.Connection.RemoteIpAddress?.ToString();
+
+        var user = await _userRepo.GetUserByEmailWithPasswordAsync(req.Email.Trim());
+        if (user == null || string.IsNullOrEmpty(user.PasswordHash))
+        {
+            _discordLogger.LogAuth("Failed Login Attempt", $"Failed email/password login for `{req.Email}` (User not found or no password set).", false);
+            return Unauthorized(new { message = "Invalid email or password." });
+        }
+
+        var isPasswordValid = PasswordHasher.VerifyPassword(req.Password, user.PasswordHash);
+        if (!isPasswordValid)
+        {
+            _discordLogger.LogAuth("Failed Login Attempt", $"Invalid password entered for `{req.Email}`.", false, new[] { ("IP", ip ?? "Unknown") });
+            return Unauthorized(new { message = "Invalid email or password." });
+        }
+
+        var mailboxes = await _userRepo.GetAssignedMailboxesAsync(user.Id);
+        var token = _userRepo.GenerateJwtToken(user);
+
+        _discordLogger.LogAuth("User Authenticated (Email/Password)", $"User **{user.Email}** successfully logged in via credentials.", true, new[]
+        {
+            ("Email", user.Email),
+            ("IP", ip ?? "Unknown")
+        });
+
+        return Ok(new AuthResponse
+        {
+            Token = token,
+            User = user,
+            Mailboxes = mailboxes
+        });
+    }
+
+    [HttpPost("register")]
+    [AllowAnonymous]
+    public async Task<IActionResult> EmailRegister([FromBody] EmailRegisterRequest req)
+    {
+        if (string.IsNullOrWhiteSpace(req.Email) || string.IsNullOrWhiteSpace(req.Password))
+            return BadRequest(new { message = "Email and password are required." });
+
+        if (req.Password.Length < 6)
+            return BadRequest(new { message = "Password must be at least 6 characters." });
+
+        var existing = await _userRepo.GetUserByEmailWithPasswordAsync(req.Email.Trim());
+        if (existing != null)
+            return Conflict(new { message = "An account with this email address already exists." });
+
+        var hashedPassword = PasswordHasher.HashPassword(req.Password);
+        var user = await _userRepo.CreateEmailUserAsync(req.Email.Trim(), hashedPassword, req.DisplayName);
+        var mailboxes = await _userRepo.GetAssignedMailboxesAsync(user.Id);
+        var token = _userRepo.GenerateJwtToken(user);
+
+        _discordLogger.LogAuth("New User Registered", $"Account created for **{user.Email}** with hashed password credentials.", true);
+
+        return Ok(new AuthResponse
+        {
+            Token = token,
+            User = user,
+            Mailboxes = mailboxes
+        });
+    }
+
     [HttpGet("me")]
     [Authorize]
     public async Task<IActionResult> GetCurrentUser()
