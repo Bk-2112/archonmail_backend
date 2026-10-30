@@ -225,31 +225,36 @@ public class UserRepository
             await using var conn = _db.GetConnection();
             await conn.OpenAsync();
 
-            var admin = await GetUserByEmailWithPasswordAsync("admin@teamarchon.in");
+            // 1. Auto-apply column additions so no manual SQL is required
+            await conn.ExecuteAsync(@"
+                ALTER TABLE public.users ADD COLUMN IF NOT EXISTS password_hash VARCHAR(255);
+                ALTER TABLE public.users ALTER COLUMN discord_id DROP NOT NULL;");
+
             var adminHash = PasswordHasher.HashPassword("ArchonAdmin2026!");
 
-            if (admin == null)
+            // 2. Check if admin exists
+            var existingId = await conn.QuerySingleOrDefaultAsync<Guid?>(
+                "SELECT id FROM public.users WHERE LOWER(email) = 'admin@teamarchon.in' LIMIT 1;");
+
+            if (existingId == null)
             {
                 const string insertAdminSql = @"
                     INSERT INTO public.users (discord_id, discord_username, discord_avatar, email, password_hash, roles, is_active, created_at, updated_at)
-                    VALUES (NULL, 'Administrator', NULL, 'admin@teamarchon.in', @adminHash, @roles, true, NOW(), NOW())
-                    ON CONFLICT (email) DO UPDATE SET 
-                        password_hash = @adminHash,
-                        roles = @roles;";
+                    VALUES (NULL, 'Administrator', NULL, 'admin@teamarchon.in', @adminHash, @roles, true, NOW(), NOW());";
 
                 await conn.ExecuteAsync(insertAdminSql, new { adminHash, roles = new[] { "admin" } });
             }
-            else if (!PasswordHasher.VerifyPassword("ArchonAdmin2026!", admin.PasswordHash) || !admin.Roles.Contains("admin"))
+            else
             {
                 const string updateAdminSql = @"
                     UPDATE public.users 
-                    SET password_hash = @adminHash, roles = @roles, updated_at = NOW() 
-                    WHERE LOWER(email) = 'admin@teamarchon.in';";
+                    SET password_hash = @adminHash, roles = @roles, is_active = true, updated_at = NOW() 
+                    WHERE id = @existingId;";
 
-                await conn.ExecuteAsync(updateAdminSql, new { adminHash, roles = new[] { "admin" } });
+                await conn.ExecuteAsync(updateAdminSql, new { existingId, adminHash, roles = new[] { "admin" } });
             }
 
-            // Ensure admin@teamarchon.in mailbox exists with actual Stalwart password
+            // 3. Ensure admin@teamarchon.in mailbox exists with actual Stalwart password
             const string ensureBoxSql = @"
                 INSERT INTO public.mailboxes (email, display_name, imap_host, imap_port, imap_ssl, smtp_host, smtp_port, smtp_ssl, encrypted_password, is_active)
                 VALUES ('admin@teamarchon.in', 'Team Archon Admin', '127.0.0.1', 993, true, '127.0.0.1', 465, true, 'ArchonAdmin2026!', true)
