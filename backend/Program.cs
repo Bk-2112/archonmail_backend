@@ -7,9 +7,32 @@ using TeamArchon.Mail.Api.Services;
 var builder = WebApplication.CreateBuilder(args);
 
 // 1. Add Configuration Sources
+void LoadEnvFile(string path)
+{
+    if (!File.Exists(path)) return;
+    foreach (var line in File.ReadAllLines(path))
+    {
+        var trimmed = line.Trim();
+        if (string.IsNullOrEmpty(trimmed) || trimmed.StartsWith("#")) continue;
+        var idx = trimmed.IndexOf('=');
+        if (idx > 0)
+        {
+            var key = trimmed[..idx].Trim();
+            var val = trimmed[(idx + 1)..].Trim();
+            if ((val.StartsWith("\"") && val.EndsWith("\"")) || (val.StartsWith("'") && val.EndsWith("'")))
+            {
+                val = val[1..^1];
+            }
+            Environment.SetEnvironmentVariable(key, val);
+        }
+    }
+}
+
+LoadEnvFile("/etc/teamarchon-api/teamarchon-api.env");
+LoadEnvFile(".env");
+
 builder.Configuration
     .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
-    .AddJsonFile($"/etc/teamarchon-api/teamarchon-api.env", optional: true)
     .AddEnvironmentVariables();
 
 // 2. HTTP Client for Discord API and Webhooks
