@@ -125,13 +125,14 @@ public class SystemController : ControllerBase
     [HttpGet("health")]
     public async Task<IActionResult> GetHealth()
     {
-        var dbOk = await _db.TestConnectionAsync();
+        var (dbOk, dbError) = await _db.TestConnectionAsync();
         return Ok(new
         {
             status = "ok",
             version = "3.0.0",
             service = "Team Archon Mail API (Ground Zero)",
             database = dbOk ? "connected" : "degraded",
+            error = dbOk ? null : dbError,
             timestamp = DateTime.UtcNow
         });
     }

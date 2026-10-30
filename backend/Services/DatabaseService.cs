@@ -17,17 +17,17 @@ public class DatabaseService
 
     public NpgsqlConnection GetConnection() => new(_connectionString);
 
-    public async Task<bool> TestConnectionAsync()
+    public async Task<(bool Success, string? Error)> TestConnectionAsync()
     {
         try
         {
             await using var conn = GetConnection();
             await conn.OpenAsync();
-            return true;
+            return (true, null);
         }
-        catch
+        catch (Exception ex)
         {
-            return false;
+            return (false, ex.Message);
         }
     }
 }
